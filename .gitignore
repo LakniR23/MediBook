@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build
+.next/
+out/
+build/
+dist/
+
+# Python
+ai_service/venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Testing & Playwright
+test-results/
+playwright-report/
+blob-report/
+
+# Environment files
+.env
+.env*.local
+
+# Database
+prisma/*.db
+prisma/*.db-journal
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
