@@ -19,6 +19,7 @@ A full-stack, responsive medical appointment scheduling application with **AI-as
   - *"cancelled appointments with Dr. Perera next week"*
   - *"checkup with Dr. Jenkins today"*
   - *"confirmed consultations"*
+- [x] **Firebase Authentication**: Login and registration supporting both **Email & Password** and **Phone Number with SMS OTP verification**, complete with an instant 1-Click Receptionist Demo Login.
 - [x] **KPI & Stats Summary**: Instant overview cards (Total Scheduled, Appointments Today, Confirmed, Cancelled, Completed).
 - [x] **Comprehensive Testing**: Unit tests (**Vitest**), API & AI tests (**pytest**), and End-to-End tests (**Playwright**).
 - [x] **Container Orchestration**: Production-ready `docker-compose.yml` for Next.js, FastAPI, and PostgreSQL.
