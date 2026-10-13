@@ -1,0 +1,40 @@
+// Prisma Schema for MediBook
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Doctor {
+  id           String        @id @default(uuid())
+  name         String
+  specialty    String
+  email        String?
+  phone        String?
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Appointment {
+  id              String   @id @default(uuid())
+  patientName     String
+  patientContact  String?
+  doctorId        String
+  doctor          Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointmentDate DateTime // Stored in UTC
+  appointmentType String   @default("CHECKUP")   // CHECKUP, CONSULTATION, FOLLOW_UP, ROUTINE_EXAM, EMERGENCY
+  status          String   @default("SCHEDULED") // SCHEDULED, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([patientName])
+  @@index([doctorId])
+  @@index([appointmentDate])
+  @@index([status])
+}
