@@ -55,6 +55,15 @@ export function Navbar({ onNewAppointment, aiConnected }: NavbarProps) {
             <span>{aiConnected ? "AI Service Connected" : "Local Engine"}</span>
           </div>
 
+          {/* API Docs / Swagger Link */}
+          <a
+            href="/docs"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-sky-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+            title="Open Interactive Swagger UI documentation"
+          >
+            <span>Swagger API Docs</span>
+          </a>
+
           {/* New Appointment Button */}
           <button
             onClick={onNewAppointment}

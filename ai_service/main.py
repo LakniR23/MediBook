@@ -1,5 +1,5 @@
 """
-FastAPI application for MediBook AI Search Service.
+FastAPI application for MediBook AI Search Service with Interactive Swagger / OpenAPI Documentation.
 """
 
 from fastapi import FastAPI, HTTPException
@@ -7,10 +7,36 @@ from fastapi.middleware.cors import CORSMiddleware
 from schemas import SearchQueryRequest, SearchQueryResponse
 from parser import parse_query
 
+tags_metadata = [
+    {
+        "name": "Health",
+        "description": "Liveness and service status monitoring.",
+    },
+    {
+        "name": "Natural Language Query Parsing",
+        "description": "Transforms plain-English requests into validated JSON appointment filters via Groq LLaMA 3.3 or deterministic NLP.",
+    },
+]
+
 app = FastAPI(
-    title="MediBook AI Query Parser Service",
-    description="Microservice for extracting structured medical appointment filters from natural language queries.",
+    title="MediBook AI Query Parser Service API",
+    description="""
+### MediBook AI Search Microservice
+
+This microservice enables natural language clinical appointment searching.
+- **Interactive Swagger UI**: `/docs`
+- **ReDoc Documentation**: `/redoc`
+- **OpenAPI Schema**: `/openapi.json`
+
+#### Key Capabilities:
+- Parses complex queries like *"cancelled appointments with Dr. Perera next week"*
+- Extracts doctor names, appointment statuses, appointment types, and ISO 8601 UTC date bounds
+- Backed by Groq Cloud (LLaMA 3.3 70B) with automatic fallback to local deterministic NLP
+    """,
     version="1.0.0",
+    openapi_tags=tags_metadata,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 # Allow Next.js frontend to communicate with FastAPI
@@ -23,22 +49,30 @@ app.add_middleware(
 )
 
 
-@app.get("/")
+@app.get("/", tags=["Health"], summary="Root service discovery")
 def root():
     return {
         "service": "MediBook AI Search Parser",
         "status": "healthy",
         "version": "1.0.0",
-        "endpoints": ["/health", "/parse-search"],
+        "swagger_docs": "/docs",
+        "redoc": "/redoc",
+        "openapi_json": "/openapi.json",
     }
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health"], summary="Health check endpoint")
 def health_check():
     return {"status": "ok", "service": "medibook-ai-service"}
 
 
-@app.post("/parse-search", response_model=SearchQueryResponse)
+@app.post(
+    "/parse-search",
+    response_model=SearchQueryResponse,
+    tags=["Natural Language Query Parsing"],
+    summary="Parse natural language search query",
+    description="Accepts a plain English query and an optional reference timestamp, returning structured Pydantic-validated search filters.",
+)
 def parse_search(request: SearchQueryRequest):
     """
     Parses a natural language query into validated appointment search filters.

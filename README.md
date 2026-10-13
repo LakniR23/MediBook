@@ -114,6 +114,20 @@ The application will automatically initialize the database, seed test data, and 
 
 ---
 
+## 📑 Interactive Swagger & OpenAPI Documentation
+
+MediBook comes equipped with interactive Swagger UI and OpenAPI specifications across both microservices:
+
+| Service | Swagger UI URL | OpenAPI JSON Spec |
+|---|---|---|
+| **Core Web App (Next.js)** | **[http://localhost:3000/docs](http://localhost:3000/docs)** | `http://localhost:3000/api/openapi.json` |
+| **AI Microservice (FastAPI)** | **[http://localhost:8000/docs](http://localhost:8000/docs)** | `http://localhost:8000/openapi.json` |
+| **FastAPI ReDoc** | **[http://localhost:8000/redoc](http://localhost:8000/redoc)** | — |
+
+> **Pro-Tip**: You can also click the **"Swagger API Docs"** button in the top navigation bar of the dashboard at [http://localhost:3000](http://localhost:3000) to open the interactive documentation page with live "Try it out" execution.
+
+---
+
 ## 🧪 Running the Automated Tests
 
 ### 1. Vitest (Core App & Fallback Search Parser)
