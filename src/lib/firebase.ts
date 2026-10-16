@@ -19,11 +19,28 @@ export const isFirebaseConfigured = Boolean(
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 
-if (typeof window !== "undefined") {
-  if (isFirebaseConfigured) {
+export function getFirebaseApp(): FirebaseApp | undefined {
+  if (typeof window === "undefined" || !isFirebaseConfigured) return undefined;
+  if (!app) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    auth = getAuth(app);
   }
+  return app;
+}
+
+export function getFirebaseAuth(): Auth | undefined {
+  if (typeof window === "undefined" || !isFirebaseConfigured) return undefined;
+  if (!auth) {
+    const firebaseApp = getFirebaseApp();
+    if (firebaseApp) {
+      auth = getAuth(firebaseApp);
+    }
+  }
+  return auth;
+}
+
+if (typeof window !== "undefined" && isFirebaseConfigured) {
+  app = getFirebaseApp();
+  auth = getFirebaseAuth();
 }
 
 export { app, auth };

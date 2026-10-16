@@ -4,123 +4,86 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Activity,
-  Mail,
-  Lock,
-  Phone,
   User,
-  ArrowRight,
+  Mail,
+  Phone,
+  MapPin,
+  Lock,
   ShieldAlert,
-  KeyRound,
+  ArrowRight,
   CheckCircle2,
+  Stethoscope,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { ConfirmationResult } from "firebase/auth";
+import { isValidSriLankanPhone, isValidEmail } from "@/lib/formatters";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const {
-    user,
-    registerWithEmail,
-    setupRecaptcha,
-    sendPhoneOtp,
-    verifyPhoneOtp,
-  } = useAuth();
+  const { user, registerWithEmail } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"email" | "phone">("email");
-
-  // Email form state
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [role, setRole] = useState("Medical Officer");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  // Phone form state
-  const [phoneName, setPhoneName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [otpSent, setOtpSent] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      router.push("/");
-    }
-  }, [user, router]);
-
-  // Handle Email Register
-  const handleEmailSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+
+    // 1. Validate Legal Name
+    if (fullName.trim().length < 3) {
+      setErrorMsg("Please enter your full legal name (at least 3 characters).");
+      return;
+    }
+
+    // 2. Validate 10-digit Sri Lankan phone number via shared domain validator
+    if (!isValidSriLankanPhone(phone)) {
+      setErrorMsg("Phone number must be exactly 10 digits (e.g. 0771234567).");
+      return;
+    }
+
+    // 3. Validate Email with @ and domain via shared domain validator
+    if (!isValidEmail(email)) {
+      setErrorMsg("Email must be properly formatted with '@' and domain (e.g. yourname@gmail.com).");
+      return;
+    }
+
+    // 4. Validate Address
+    if (address.trim().length < 5) {
+      setErrorMsg("Please provide a valid residential or clinic station address.");
+      return;
+    }
+
+    // 5. Validate Password
+    if (password.length < 6) {
+      setErrorMsg("Password must be at least 6 characters long.");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setErrorMsg("Passwords do not match.");
       return;
     }
-    if (password.length < 6) {
-      setErrorMsg("Password must be at least 6 characters.");
-      return;
-    }
 
     setIsLoading(true);
-
     try {
-      await registerWithEmail(email, password, fullName);
+      await registerWithEmail({
+        name: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+        address: address.trim(),
+        password,
+        role,
+      });
       router.push("/");
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to create account.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle Send Phone OTP for registration
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-
-    if (!phoneNumber.startsWith("+")) {
-      setErrorMsg("Please include international country code (e.g. +1 555 123 4567).");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const verifier = setupRecaptcha("recaptcha-register-container");
-      if (!verifier) {
-        throw new Error("Unable to initialize reCAPTCHA verifier.");
-      }
-      const confirmation = await sendPhoneOtp(phoneNumber, verifier);
-      setConfirmationResult(confirmation);
-      setOtpSent(true);
-    } catch (err: any) {
-      setErrorMsg(err.message || "Failed to send SMS OTP.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle Verify Phone OTP
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-
-    if (!confirmationResult || !otpCode) {
-      setErrorMsg("Please enter the 6-digit OTP code.");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      await verifyPhoneOtp(confirmationResult, otpCode);
-      router.push("/");
-    } catch (err: any) {
-      setErrorMsg(err.message || "Invalid OTP code. Please try again.");
+      setErrorMsg(err.message || "Registration failed. Please check your details.");
     } finally {
       setIsLoading(false);
     }
@@ -128,248 +91,210 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      {/* Invisible reCAPTCHA container */}
-      <div id="recaptcha-register-container" />
-
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center mb-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-600 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-sky-500/20">
-            <Activity className="w-7 h-7 stroke-[2.2]" />
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-sky-500 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+            <Stethoscope className="w-6 h-6" />
           </div>
+          <span className="font-bold text-2xl tracking-tight text-slate-900">
+            MediBook
+          </span>
         </div>
-        <h2 className="text-center text-2xl font-bold tracking-tight text-slate-900">
-          Create an Account
+        <p className="text-center text-xs font-semibold tracking-wider uppercase text-sky-700">
+          Sri Lanka Health Service Intake
+        </p>
+        <h2 className="mt-3 text-center text-2xl font-bold tracking-tight text-slate-900">
+          Register Staff Profile
         </h2>
         <p className="mt-1 text-center text-xs text-slate-500">
-          Register new clinical staff credentials in MediBook
+          Create clinical credentials for attending physicians, nurses, and medical officers
         </p>
       </div>
 
-      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl border border-slate-200 sm:rounded-2xl sm:px-10">
-          {/* Tab Selector */}
-          <div className="flex rounded-xl bg-slate-100 p-1 mb-6 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("email");
-                setErrorMsg(null);
-              }}
-              className={`flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
-                activeTab === "email"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Mail className="w-4 h-4" />
-              <span>Register with Email</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("phone");
-                setErrorMsg(null);
-              }}
-              className={`flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
-                activeTab === "phone"
-                  ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Phone className="w-4 h-4" />
-              <span>Register with Phone</span>
-            </button>
-          </div>
-
-          {/* Error Banner */}
+      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-xl">
+        <div className="bg-white py-8 px-6 sm:px-8 shadow-xl shadow-slate-200/50 sm:rounded-2xl border border-slate-200/80">
+          {/* Error notification */}
           {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
-              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="mb-5 p-3 rounded-lg bg-red-50 border border-red-200 flex items-start gap-2.5 text-xs text-red-700">
+              <ShieldAlert className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {/* TAB 1: EMAIL REGISTRATION */}
-          {activeTab === "email" && (
-            <form onSubmit={handleEmailSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Full Name & Clinical Role */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
-                  Full Name
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Full Legal Name <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type="text"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Dr. Clara Oswald"
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition"
+                    placeholder="e.g. Dr. Priyantha Silva"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 text-xs rounded-lg outline-none focus:ring-2 focus:ring-sky-500 border border-slate-200 transition-colors"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
-                  Email Address
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Clinical Designation
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Stethoscope className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 text-xs rounded-lg outline-none focus:ring-2 focus:ring-sky-500 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    <option value="Staff Nurse">Staff Nurse / Nursing Officer</option>
+                    <option value="Ward Sister / Charge Nurse">Ward Sister / Charge Nurse</option>
+                    <option value="Registered Nurse">Registered Nurse</option>
+                    <option value="Consultant Physician">Consultant Physician</option>
+                    <option value="Medical Officer">Medical Officer</option>
+                    <option value="Chief Clinical Registrar">Chief Clinical Registrar</option>
+                    <option value="Hospital Administrator">Hospital Administrator</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* 10-digit Phone & Email */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  10-Digit Sri Lankan Phone <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="tel"
+                    required
+                    maxLength={10}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    placeholder="0771234567"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 text-xs rounded-lg outline-none focus:ring-2 focus:ring-sky-500 border border-slate-200 transition-colors"
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500">
+                  <span>Starts with 0 (e.g. 077, 071)</span>
+                  <span className={`font-semibold ${phone.length === 10 ? "text-emerald-600" : "text-slate-600"}`}>
+                    {phone.length}/10 digits
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Email Address <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="clara.o@medibook.fictional"
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition"
+                    placeholder="e.g. priyantha.silva@gmail.com"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 text-xs rounded-lg outline-none focus:ring-2 focus:ring-sky-500 border border-slate-200 transition-colors"
                   />
                 </div>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Must include '@' and domain
+                </p>
               </div>
+            </div>
 
+            {/* Address */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Sri Lankan Address <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <MapPin className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  required
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="e.g. No. 45, Galle Road, Colombo 03"
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 text-xs rounded-lg outline-none focus:ring-2 focus:ring-sky-500 border border-slate-200 transition-colors"
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Residential or hospital clinic station address
+              </p>
+            </div>
+
+            {/* Passwords */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
-                  Password
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Password <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type="password"
                     required
+                    minLength={6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="At least 6 characters"
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 text-xs rounded-lg outline-none focus:ring-2 focus:ring-sky-500 border border-slate-200 transition-colors"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
-                  Confirm Password
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Confirm Password <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type="password"
                     required
+                    minLength={6}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repeat password"
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 hover:bg-slate-100/70 focus:bg-white text-slate-900 text-xs rounded-lg outline-none focus:ring-2 focus:ring-sky-500 border border-slate-200 transition-colors"
                   />
                 </div>
               </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-sm font-medium shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isLoading && (
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                )}
-                <span>Register Account</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
-          )}
-
-          {/* TAB 2: PHONE REGISTRATION */}
-          {activeTab === "phone" && (
-            <div>
-              {!otpSent ? (
-                <form onSubmit={handleSendOtp} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
-                      Full Name
-                    </label>
-                    <div className="relative">
-                      <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input
-                        type="text"
-                        required
-                        value={phoneName}
-                        onChange={(e) => setPhoneName(e.target.value)}
-                        placeholder="Dr. Arthur Dent"
-                        className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
-                      Phone Number (with country code)
-                    </label>
-                    <div className="relative">
-                      <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input
-                        type="tel"
-                        required
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="+1 (555) 345-6789"
-                        className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
-                      />
-                    </div>
-                    <p className="mt-1 text-[11px] text-slate-500">
-                      We will send an SMS with a 6-digit verification code.
-                    </p>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-medium shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {isLoading && (
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    )}
-                    <span>Send SMS Code</span>
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
-                      Enter 6-Digit OTP Code
-                    </label>
-                    <div className="relative">
-                      <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                      <input
-                        type="text"
-                        required
-                        maxLength={6}
-                        value={otpCode}
-                        onChange={(e) => setOtpCode(e.target.value)}
-                        placeholder="123456"
-                        className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm tracking-widest text-center font-bold focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-medium shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {isLoading && (
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    )}
-                    <span>Complete Registration</span>
-                  </button>
-                </form>
-              )}
             </div>
-          )}
 
-          {/* Login Link */}
-          <div className="mt-6 text-center text-xs text-slate-600">
-            Already have an account?{" "}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full mt-4 py-2.5 px-4 rounded-lg bg-sky-500 hover:bg-sky-600 active:bg-sky-700 text-white font-semibold text-xs transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isLoading ? (
+                <span>Registering Profile...</span>
+              ) : (
+                <>
+                  <span>Create Account & Access Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Footer note */}
+          <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>Already have an account?</span>
             <Link
               href="/login"
-              className="font-semibold text-sky-600 hover:text-sky-700 underline"
+              className="font-semibold text-sky-600 hover:text-sky-700 hover:underline"
             >
-              Sign in here
+              Sign In Instead →
             </Link>
           </div>
         </div>

@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { appointmentService } from "@/services/appointment.service";
+import { prisma } from "@/lib/prisma";
 
 const updateSchema = z.object({
   patientName: z.string().min(2, "Patient name must be at least 2 characters").optional(),
-  patientContact: z.string().optional().nullable(),
+  patientContact: z
+    .string()
+    .trim()
+    .refine(
+      (val) => {
+        if (!val) return true;
+        const cleanDigits = val.replace(/[\s-]/g, "");
+        const is10Digits = /^\d{10}$/.test(cleanDigits);
+        const isEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(val);
+        return is10Digits || isEmail;
+      },
+      {
+        message:
+          "Contact must be a 10-digit phone number (e.g. 0771234567) or a valid email (e.g. name@gmail.com)",
+      }
+    )
+    .optional()
+    .nullable(),
   doctorId: z.string().uuid("Invalid doctor selection").optional(),
   appointmentDate: z
     .string()
@@ -44,10 +62,10 @@ export async function GET(
     }
 
     return NextResponse.json({ success: true, appointment });
-  } catch (error) {
-    console.error("Error retrieving appointment:", error);
+  } catch (error: any) {
+    console.error("[GET /api/appointments/[id] error]:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch appointment" },
+      { success: false, error: "Failed to fetch appointment", details: error.message },
       { status: 500 }
     );
   }
@@ -61,85 +79,29 @@ export async function PUT(
     const body = await request.json();
     const validated = updateSchema.parse(body);
 
-    const existing = await prisma.appointment.findUnique({
-      where: { id: params.id },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { success: false, error: "Appointment not found" },
-        { status: 404 }
-      );
-    }
-
-    const doctorId = validated.doctorId || existing.doctorId;
-    const apptDate = validated.appointmentDate
-      ? new Date(validated.appointmentDate)
-      : existing.appointmentDate;
-    const status = validated.status || existing.status;
-
-    // Check for scheduling conflict if date or doctor changed and status is not CANCELLED
-    if (
-      (validated.doctorId || validated.appointmentDate) &&
-      status !== "CANCELLED"
-    ) {
-      const slotStart = new Date(apptDate.getTime() - 14 * 60 * 1000);
-      const slotEnd = new Date(apptDate.getTime() + 14 * 60 * 1000);
-
-      const conflict = await prisma.appointment.findFirst({
-        where: {
-          id: { not: params.id },
-          doctorId,
-          status: { not: "CANCELLED" },
-          appointmentDate: {
-            gte: slotStart,
-            lte: slotEnd,
-          },
-        },
-        include: { doctor: true },
-      });
-
-      if (conflict) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `${conflict.doctor.name} already has an appointment booked around that time.`,
-          },
-          { status: 409 }
-        );
-      }
-    }
-
-    const updated = await prisma.appointment.update({
-      where: { id: params.id },
-      data: {
-        ...(validated.patientName && { patientName: validated.patientName }),
-        ...(validated.patientContact !== undefined && {
-          patientContact: validated.patientContact,
-        }),
-        ...(validated.doctorId && { doctorId: validated.doctorId }),
-        ...(validated.appointmentDate && { appointmentDate: apptDate }),
-        ...(validated.appointmentType && {
-          appointmentType: validated.appointmentType,
-        }),
-        ...(validated.status && { status: validated.status }),
-        ...(validated.notes !== undefined && { notes: validated.notes }),
-      },
-      include: { doctor: true },
+    const updated = await appointmentService.updateAppointment(params.id, {
+      patientName: validated.patientName,
+      patientContact: validated.patientContact,
+      doctorId: validated.doctorId,
+      appointmentDate: validated.appointmentDate,
+      appointmentType: validated.appointmentType,
+      status: validated.status,
+      notes: validated.notes,
     });
 
     return NextResponse.json({ success: true, appointment: updated });
   } catch (error: any) {
+    console.error("[PUT /api/appointments/[id] error]:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { success: false, error: error.errors[0].message },
         { status: 400 }
       );
     }
-    console.error("Error updating appointment:", error);
+    const statusCode = error.message?.includes("Conflict detected") ? 409 : 400;
     return NextResponse.json(
-      { success: false, error: "Failed to update appointment" },
-      { status: 500 }
+      { success: false, error: error.message || "Failed to update appointment" },
+      { status: statusCode }
     );
   }
 }
@@ -149,29 +111,15 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const existing = await prisma.appointment.findUnique({
-      where: { id: params.id },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { success: false, error: "Appointment not found" },
-        { status: 404 }
-      );
-    }
-
-    await prisma.appointment.delete({
-      where: { id: params.id },
-    });
-
+    await appointmentService.deleteAppointment(params.id);
     return NextResponse.json({
       success: true,
       message: "Appointment deleted successfully",
     });
-  } catch (error) {
-    console.error("Error deleting appointment:", error);
+  } catch (error: any) {
+    console.error("[DELETE /api/appointments/[id] error]:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to delete appointment" },
+      { success: false, error: "Failed to delete appointment", details: error.message },
       { status: 500 }
     );
   }

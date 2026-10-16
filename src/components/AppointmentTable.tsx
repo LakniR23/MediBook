@@ -153,11 +153,6 @@ export function AppointmentTable({
                       <span>{appt.patientContact}</span>
                     </div>
                   )}
-                  {appt.notes && (
-                    <div className="text-xs text-slate-500 italic mt-1 max-w-xs truncate" title={appt.notes}>
-                      Note: {appt.notes}
-                    </div>
-                  )}
                 </td>
 
                 {/* Date & Time */}
@@ -165,9 +160,8 @@ export function AppointmentTable({
                   <div className="font-medium text-slate-900">
                     {formatDateOnly(appt.appointmentDate)}
                   </div>
-                  <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                    <Clock className="w-3 h-3 text-sky-500" />
-                    <span>{formatTimeOnly(appt.appointmentDate)}</span>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {formatTimeOnly(appt.appointmentDate)}
                   </div>
                 </td>
 

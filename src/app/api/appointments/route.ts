@@ -1,14 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { startOfDay, endOfDay } from "date-fns";
+import { appointmentService } from "@/services/appointment.service";
 
 const appointmentSchema = z.object({
   patientName: z.string().min(2, "Patient name must be at least 2 characters"),
-  patientContact: z.string().optional().nullable(),
+  patientContact: z
+    .string()
+    .trim()
+    .refine((val) => {
+      if (!val) return true;
+      const cleanPhone = val.replace(/[\s-]/g, "");
+      const is10DigitPhone = /^\d{10}$/.test(cleanPhone);
+      const isEmail = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(val);
+      return is10DigitPhone || isEmail;
+    }, {
+      message: "Patient contact must be a valid 10-digit phone number or email",
+    })
+    .optional()
+    .nullable(),
   doctorId: z.string().uuid("Invalid doctor selection"),
   appointmentDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: "Invalid date format",
+    message: "Invalid appointment date format",
   }),
   appointmentType: z.enum([
     "CHECKUP",
@@ -26,95 +38,28 @@ const appointmentSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
 
-    const search = searchParams.get("search") || undefined;
-    const doctorId = searchParams.get("doctorId") || undefined;
-    const doctorName = searchParams.get("doctorName") || undefined;
-    const status = searchParams.get("status") || undefined;
-    const appointmentType = searchParams.get("appointmentType") || undefined;
-    const startDate = searchParams.get("startDate") || undefined;
-    const endDate = searchParams.get("endDate") || undefined;
-    const sort = searchParams.get("sort") === "desc" ? "desc" : "asc";
-
-    // Build Prisma where filter
-    const where: any = {};
-
-    if (search) {
-      where.OR = [
-        { patientName: { contains: search } },
-        { notes: { contains: search } },
-        { doctor: { name: { contains: search } } },
-      ];
-    }
-
-    if (doctorId && doctorId !== "all") {
-      where.doctorId = doctorId;
-    } else if (doctorName) {
-      // Find doctor by partial name match
-      where.doctor = {
-        name: { contains: doctorName.replace(/^Dr\.?\s*/i, "") },
-      };
-    }
-
-    if (status && status !== "all") {
-      where.status = status;
-    }
-
-    if (appointmentType && appointmentType !== "all") {
-      where.appointmentType = appointmentType;
-    }
-
-    if (startDate || endDate) {
-      where.appointmentDate = {};
-      if (startDate) {
-        where.appointmentDate.gte = new Date(startDate);
-      }
-      if (endDate) {
-        where.appointmentDate.lte = new Date(endDate);
-      }
-    }
-
-    // Fetch appointments
-    const appointments = await prisma.appointment.findMany({
-      where,
-      include: {
-        doctor: true,
-      },
-      orderBy: {
-        appointmentDate: sort,
-      },
+    const { appointments, stats } = await appointmentService.getAppointments({
+      search: searchParams.get("search") || undefined,
+      doctorId: searchParams.get("doctorId") || undefined,
+      doctorName: searchParams.get("doctorName") || undefined,
+      status: searchParams.get("status") || undefined,
+      appointmentType: searchParams.get("appointmentType") || undefined,
+      startDate: searchParams.get("startDate") || undefined,
+      endDate: searchParams.get("endDate") || undefined,
+      sort: searchParams.get("sort") === "desc" ? "desc" : "asc",
     });
-
-    // Compute stats across all records
-    const allAppointments = await prisma.appointment.findMany({
-      select: { appointmentDate: true, status: true },
-    });
-
-    const now = new Date();
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-
-    const stats = {
-      total: allAppointments.length,
-      todayCount: allAppointments.filter((a) => {
-        const d = new Date(a.appointmentDate);
-        return d >= todayStart && d <= todayEnd;
-      }).length,
-      confirmedCount: allAppointments.filter((a) => a.status === "CONFIRMED").length,
-      cancelledCount: allAppointments.filter((a) => a.status === "CANCELLED").length,
-      completedCount: allAppointments.filter((a) => a.status === "COMPLETED").length,
-    };
 
     return NextResponse.json({
       success: true,
       appointments,
       stats,
     });
-  } catch (error) {
-    console.error("Error fetching appointments:", error);
+  } catch (error: any) {
+    console.error("[GET /api/appointments error]:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch appointments" },
+      { success: false, error: "Failed to fetch appointments", details: error.message },
       { status: 500 }
     );
   }
@@ -125,57 +70,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validated = appointmentSchema.parse(body);
 
-    // Verify doctor exists
-    const doctor = await prisma.doctor.findUnique({
-      where: { id: validated.doctorId },
-    });
-    if (!doctor) {
-      return NextResponse.json(
-        { success: false, error: "Selected doctor does not exist." },
-        { status: 400 }
-      );
-    }
-
-    const apptDate = new Date(validated.appointmentDate);
-
-    // Conflict Check: 15-minute slot overlap for the same doctor (excluding CANCELLED appointments)
-    const slotStart = new Date(apptDate.getTime() - 14 * 60 * 1000);
-    const slotEnd = new Date(apptDate.getTime() + 14 * 60 * 1000);
-
-    const conflictingAppointment = await prisma.appointment.findFirst({
-      where: {
-        doctorId: validated.doctorId,
-        status: { not: "CANCELLED" },
-        appointmentDate: {
-          gte: slotStart,
-          lte: slotEnd,
-        },
-      },
-    });
-
-    if (conflictingAppointment) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `${doctor.name} already has an appointment around that time (${conflictingAppointment.appointmentDate.toISOString()}). Please choose another time.`,
-        },
-        { status: 409 }
-      );
-    }
-
-    const newAppointment = await prisma.appointment.create({
-      data: {
-        patientName: validated.patientName,
-        patientContact: validated.patientContact || null,
-        doctorId: validated.doctorId,
-        appointmentDate: apptDate,
-        appointmentType: validated.appointmentType,
-        status: validated.status,
-        notes: validated.notes || null,
-      },
-      include: {
-        doctor: true,
-      },
+    const newAppointment = await appointmentService.createAppointment({
+      patientName: validated.patientName,
+      patientContact: validated.patientContact,
+      doctorId: validated.doctorId,
+      appointmentDate: validated.appointmentDate,
+      appointmentType: validated.appointmentType,
+      status: validated.status,
+      notes: validated.notes,
     });
 
     return NextResponse.json(
@@ -183,16 +85,17 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error: any) {
+    console.error("[POST /api/appointments error]:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: error.errors[0].message },
+        { success: false, error: "Validation failed", details: error.errors },
         { status: 400 }
       );
     }
-    console.error("Error creating appointment:", error);
+    const statusCode = error.message?.includes("already has an appointment") ? 409 : 400;
     return NextResponse.json(
-      { success: false, error: "Failed to create appointment" },
-      { status: 500 }
+      { success: false, error: error.message || "Failed to schedule appointment" },
+      { status: statusCode }
     );
   }
 }

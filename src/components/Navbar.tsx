@@ -11,7 +11,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ onNewAppointment, aiConnected }: NavbarProps) {
-  const { user, logout, isFirebaseConfigured } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">

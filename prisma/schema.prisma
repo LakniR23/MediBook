@@ -15,6 +15,8 @@ model Doctor {
   specialty    String
   email        String?
   phone        String?
+  shift        String?       @default("Morning")
+  room         String?       @default("Consult Room 01")
   appointments Appointment[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -37,4 +39,42 @@ model Appointment {
   @@index([doctorId])
   @@index([appointmentDate])
   @@index([status])
+}
+
+model Patient {
+  id            String   @id @default(uuid())
+  mrn           String   @unique
+  name          String
+  age           Int      @default(35)
+  gender        String   @default("Male")
+  phone         String?
+  email         String?
+  bloodGroup    String   @default("O+")
+  primaryDoctor String   @default("Dr. Silva")
+  status        String   @default("ACTIVE") // ACTIVE, CHRONIC_CARE, DISCHARGED
+  address       String?
+  alertNote     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([mrn])
+  @@index([name])
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  phoneNumber  String?
+  passwordHash String
+  role         String   @default("Nurse") // Nurse, Doctor, Receptionist, Medical Officer, Admin
+  station      String?  @default("General Ward")
+  slmcReg      String?
+  hospital     String?  @default("National Hospital of Sri Lanka")
+  bio          String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([email])
+  @@index([phoneNumber])
 }

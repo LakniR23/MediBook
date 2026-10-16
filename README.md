@@ -19,9 +19,12 @@ A full-stack, responsive medical appointment scheduling application with **AI-as
   - *"cancelled appointments with Dr. Perera next week"*
   - *"checkup with Dr. Jenkins today"*
   - *"confirmed consultations"*
-- [x] **Firebase Authentication**: Login and registration supporting both **Email & Password** and **Phone Number with SMS OTP verification**, complete with an instant 1-Click Receptionist Demo Login.
+- [x] **Siri / Alexa-Style Voice AI Assistant ("Medi")**: Hands-free voice assistant with 3D photorealistic mic sphere, wake words ("Hey Medi"), multi-line HUD captions, and verbal spoken responses for appointments, doctors, shifts, and patient medical records.
+- [x] **Sri Lankan Clinical Operations**: 4 hospital shifts (Morning, Evening, Night, Emergency On-Call), live SLST shift indicator, and standard 10-digit Sri Lankan phone number validation.
+- [x] **Privacy-Compliant Patient Directory**: HIPAA/privacy-conscious separation keeping sensitive clinical details (Blood Group, Allergies, Chronic Conditions) within a restricted staff modal.
+- [x] **Authentication & Role Security**: Secure clinical access via Email/Password (bcrypt hash) and 10-digit Phone authentication with dedicated PostgreSQL User table.
 - [x] **KPI & Stats Summary**: Instant overview cards (Total Scheduled, Appointments Today, Confirmed, Cancelled, Completed).
-- [x] **Comprehensive Testing**: Unit tests (**Vitest**), API & AI tests (**pytest**), and End-to-End tests (**Playwright**).
+- [x] **86 Comprehensive Automated Tests**: Unit tests (**Vitest** - 55 passed), API tests (**pytest** - 5 passed), and E2E tests (**Playwright** - 26 passed).
 - [x] **Container Orchestration**: Production-ready `docker-compose.yml` for Next.js, FastAPI, and PostgreSQL.
 
 ---
@@ -131,23 +134,23 @@ MediBook comes equipped with interactive Swagger UI and OpenAPI specifications a
 
 ## 🧪 Running the Automated Tests
 
-### 1. Vitest (Core App & Fallback Search Parser)
+### 1. Vitest (Core App, Shifts, Patient Service, & Voice Intent — 55 Tests)
 ```bash
 npm test
 ```
-*Validates query normalization, doctor recognition, date formatting, and local fallback parsing.*
+*Validates hospital shifts (SLST/UTC+5:30), patient CRUD, doctor roster lookups, phone validation, voice intent classification, and local fallback NLP parsing (55 tests passing).*
 
-### 2. pytest (FastAPI AI Service)
+### 2. pytest (FastAPI AI Service — 5 Tests)
 ```bash
 .\ai_service\venv\Scripts\pytest .\ai_service\tests\test_parser.py -v
 ```
-*Validates health checks, Pydantic schemas, 400 Bad Request handling, and natural language extraction.*
+*Validates health checks, Pydantic v2 schemas, 400 Bad Request handling, and natural language query extraction (5 tests passing).*
 
-### 3. Playwright (End-to-End User Journeys)
+### 3. Playwright (End-to-End User Journeys — 26 Tests)
 ```bash
 npx playwright test
 ```
-*Tests the full browser flow: dashboard rendering, natural language search, appointment creation, editing, and deletion.*
+*Tests the full browser flow: dashboard rendering, shift badges, natural language search, appointment conflict prevention, doctor roster filtering by shift, patient privacy modal, and hands-free Siri/Alexa-style Voice AI assistant (26 tests passing).*
 
 ---
 
